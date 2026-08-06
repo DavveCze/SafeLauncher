@@ -32,74 +32,50 @@ A PyQt6-based GUI launcher for sandboxed games using Firejail. Manage your game 
 
 ## Installation
 
-### One-file AppImage (recommended for users)
+### For users: download and run the AppImage
 
-Download `MGLauncher-x86_64.AppImage`, make it executable, and double-click it:
+There is no Python setup or `pip` command needed. Download the latest
+`MGLauncher-x86_64.AppImage`, make it executable once, and launch it:
 
 ```bash
 chmod +x MGLauncher-x86_64.AppImage
 ./MGLauncher-x86_64.AppImage
 ```
 
-The AppImage includes Python, PyQt6, requests, Pillow, and the application itself.
-Firejail, Wine/UMU, Steam, graphics drivers, and game files remain host dependencies.
-MGLauncher checks for the relevant host tools when launching a game.
+The AppImage includes MGLauncher, Python, PyQt6, requests, and Pillow. You
+still need Firejail and Wine or UMU installed for Windows game launching.
+Steam, graphics drivers, and game files are provided by the host system.
 
-To build it locally, install PyInstaller and `appimagetool`, then run:
+Install the host game dependencies once:
 
 ```bash
-./packaging/build-appimage.sh
+sudo apt install firejail wine       # Ubuntu/Debian
+# sudo dnf install firejail wine      # Fedora
+# sudo pacman -S firejail wine        # Arch
 ```
 
-For a reproducible containerized build without installing Python packaging tools on the host:
+MGLauncher will tell you when a required host tool is missing.
+
+### For developers: build the AppImage
+
+You only need Docker and internet access. From the repository root, run:
 
 ```bash
 ./packaging/build-appimage-docker.sh
 ```
 
-### Source/developer setup
+That command installs the build dependencies inside Docker, builds the
+application, and creates `dist/MGLauncher-x86_64.AppImage`. Share that single
+file with users; they do not need Docker, Python, PyQt6, or the source tree.
 
-Use this setup when running MGLauncher directly from the repository.
+### Optional: run from source
 
-#### 1. Create a virtual environment
+This is only needed for development. It is not required to use the AppImage.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-```
-
-#### 2. Install host dependencies
-
-MGLauncher launches games using programs installed on the host system. Install
-Firejail and your preferred Windows game runner:
-
-**Ubuntu/Debian:**
-
-```bash
-sudo apt install firejail wine
-```
-
-**Fedora:**
-
-```bash
-sudo dnf install firejail wine
-```
-
-**Arch Linux:**
-
-```bash
-sudo pacman -S firejail wine
-```
-
-Install `umu-launcher` separately if you want to use UMU mode. Native Linux
-games only require their own runtime dependencies.
-
-#### 3. Start MGLauncher
-
-```bash
-source .venv/bin/activate
 python main.py
 ```
 
@@ -107,32 +83,6 @@ To add an application-menu shortcut for the source checkout:
 
 ```bash
 ./install_desktop_entry.sh
-```
-
-### Host dependencies
-
-The AppImage bundles Python, PyQt6, requests, Pillow, and MGLauncher itself,
-but it cannot bundle your graphics drivers, Steam installation, game files,
-Firejail, Wine, or UMU. These must remain installed on the host.
-
-The application checks for Firejail when launching a game and displays the
-appropriate installation guidance when it is missing.
-
-### Build the AppImage
-
-The recommended build method requires Docker:
-
-```bash
-./packaging/build-appimage-docker.sh
-```
-
-The generated file is `dist/MGLauncher-x86_64.AppImage`.
-
-For a native build, install PyInstaller and `appimagetool`, then run:
-
-```bash
-python3 -m pip install pyinstaller
-./packaging/build-appimage.sh
 ```
 
 ## Usage
