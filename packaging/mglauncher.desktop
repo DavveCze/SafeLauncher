@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=MGLauncher
+Comment=Game Sandbox Launcher
+Exec=MGLauncher
+Icon=mglauncher
+Terminal=false
+Categories=Game;
+Keywords=game;launcher;sandbox;firejail;steam;
+StartupWMClass=MGLauncher
