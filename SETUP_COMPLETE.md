@@ -1,4 +1,4 @@
-# MGLauncher - Complete Setup Summary
+# SafeLauncher - Complete Setup Summary
 
 ## ✅ Project Created Successfully!
 
@@ -9,7 +9,7 @@ Your **Game Sandbox Launcher** with PyQt6 GUI is now ready to use.
 ## 📁 Complete Project Structure
 
 ```
-MGLauncher/
+SafeLauncher/
 ├── main.py                    # 🚀 Main entry point - launches PyQt6 GUI
 ├── database.py                # 🗄️ SQLite game library database
 ├── launcher.sh                # 🎮 Bash launcher script (executable)
@@ -37,7 +37,7 @@ MGLauncher/
 
 ### 1. Install Python Dependencies
 ```bash
-cd /home/martin/Main/Programming/MGLauncher
+cd /home/martin/Main/Programming/SafeLauncher
 pip install -r requirements.txt
 ```
 
@@ -177,7 +177,7 @@ python test.py
 Your game launcher is ready to use. Start by:
 
 ```bash
-cd /home/martin/Main/Programming/MGLauncher
+cd /home/martin/Main/Programming/SafeLauncher
 python main.py
 ```
 

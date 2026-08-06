@@ -1,4 +1,4 @@
-# MGLauncher - UI Components & Workflow
+# SafeLauncher - UI Components & Workflow
 
 ## Main Window UI
 

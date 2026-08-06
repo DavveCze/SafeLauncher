@@ -22,7 +22,7 @@ class SteamBuildFetcher(QThread):
             url = f"https://api.steamcmd.net/v1/info/{self.steam_id}"
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "MGLauncher/1.0 (Linux Game Sandbox Manager)"}
+                headers={"User-Agent": "SafeLauncher/1.0 (Linux Game Sandbox Manager)"}
             )
             with urllib.request.urlopen(req, timeout=5) as resp:
                 if resp.status == 200:

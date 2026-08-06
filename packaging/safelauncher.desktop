@@ -1,11 +1,11 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=MGLauncher
+Name=SafeLauncher
 Comment=Game Sandbox Launcher
-Exec=MGLauncher
-Icon=mglauncher
+Exec=SafeLauncher
+Icon=safelauncher
 Terminal=false
 Categories=Game;
 Keywords=game;launcher;sandbox;firejail;steam;
-StartupWMClass=MGLauncher
+StartupWMClass=SafeLauncher

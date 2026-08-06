@@ -6,7 +6,7 @@ import socket
 import struct
 import threading
 
-CLIENT_ID = "1200000000000000000"  # Default Discord Application ID for MGLauncher
+CLIENT_ID = "1200000000000000000"  # Default Discord Application ID for SafeLauncher
 
 
 class DiscordRPC:
@@ -67,7 +67,7 @@ class DiscordRPC:
                 return False
             return False
 
-    def set_activity(self, game_name: str, start_timestamp: int = None, details: str = "Playing via MGLauncher"):
+    def set_activity(self, game_name: str, start_timestamp: int = None, details: str = "Playing via SafeLauncher"):
         """Update Discord Rich Presence activity."""
         if not self.connected:
             if not self.connect():
@@ -90,7 +90,7 @@ class DiscordRPC:
                         "large_image": "gamepad",
                         "large_text": game_name,
                         "small_image": "shield",
-                        "small_text": "MGLauncher Sandbox"
+                        "small_text": "SafeLauncher Sandbox"
                     }
                 }
             },

@@ -2186,7 +2186,7 @@ class MainWindow(QMainWindow):
         self.current_filter = "all"
         self.current_sort = 0  # 0: A-Z, 1: Playtime, 2: Recently Added
 
-        self.setWindowTitle("🎮 MGLauncher - Game Sandbox Manager")
+        self.setWindowTitle("🎮 SafeLauncher - Game Sandbox Manager")
         self.resize(1180, 750)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         
@@ -2638,7 +2638,7 @@ class MainWindow(QMainWindow):
         else:
             self.tray_icon.setIcon(get_app_icon("library"))
 
-        self.tray_icon.setToolTip("MGLauncher - Game Sandbox Manager")
+        self.tray_icon.setToolTip("SafeLauncher - Game Sandbox Manager")
         self.tray_menu = QMenu(self)
         self.tray_menu.setStyleSheet("""
             QMenu {
@@ -2676,7 +2676,7 @@ class MainWindow(QMainWindow):
         self.tray_menu.clear()
 
         # Show / Hide Launcher
-        act_show = self.tray_menu.addAction(get_app_icon("library"), "Open MGLauncher Library")
+        act_show = self.tray_menu.addAction(get_app_icon("library"), "Open SafeLauncher Library")
         act_show.triggered.connect(self._show_and_raise)
 
         self.tray_menu.addSeparator()
@@ -2711,7 +2711,7 @@ class MainWindow(QMainWindow):
         self.tray_menu.addSeparator()
 
         # Quit
-        act_quit = self.tray_menu.addAction(get_app_icon("close"), "Quit MGLauncher")
+        act_quit = self.tray_menu.addAction(get_app_icon("close"), "Quit SafeLauncher")
         act_quit.triggered.connect(QApplication.instance().quit)
 
         self.tray_icon.setContextMenu(self.tray_menu)

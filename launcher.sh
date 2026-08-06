@@ -1,5 +1,5 @@
 #!/bin/bash
-# MGLauncher - Game Sandbox Launcher
+# SafeLauncher - Game Sandbox Launcher
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
@@ -22,4 +22,4 @@ fi
 
 # Run detached in background without keeping terminal process attached
 nohup "$PYTHON_BIN" "$DIR/main.py" >/dev/null 2>&1 &
-echo "MGLauncher started in background (PID: $!)."
+echo "SafeLauncher started in background (PID: $!)."

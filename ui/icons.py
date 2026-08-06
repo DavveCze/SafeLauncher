@@ -1,5 +1,5 @@
 """
-Icon helper module for MGLauncher providing crisp Phosphor & FontAwesome vector icons
+Icon helper module for SafeLauncher providing crisp Phosphor & FontAwesome vector icons
 via QtAwesome with automatic fallback handling.
 """
 
@@ -34,7 +34,7 @@ def get_icon(name: str, color: str = "#ffffff", active_color: Optional[str] = No
         return QIcon()
 
 
-# Pre-defined Icon Key Mappings for MGLauncher
+# Pre-defined Icon Key Mappings for SafeLauncher
 ICONS = {
     "library": ("ph.game-controller-bold", "#ffffff"),
     "sandbox": ("ph.folder-open-bold", "#ffffff"),

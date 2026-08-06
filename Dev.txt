@@ -4,7 +4,7 @@ You only need Docker and internet access. From the repository root, run:
 
 ./packaging/build-appimage-docker.sh
 
-That command installs the build dependencies inside Docker, builds the application, and creates dist/MGLauncher-x86_64.AppImage. Share that single file with users; they do not need Docker, Python, PyQt6, or the source tree.
+That command installs the build dependencies inside Docker, builds the application, and creates dist/SafeLauncher-x86_64.AppImage. Share that single file with users; they do not need Docker, Python, PyQt6, or the source tree.
 Optional: run from source
 
 This is only needed for development. It is not required to use the AppImage.
@@ -53,7 +53,7 @@ Import Saves
 
 Project Structure
 
-MGLauncher/
+SafeLauncher/
 ├── main.py                 # Entry point - launches PyQt6 app
 ├── database.py             # SQLite database management
 ├── requirements.txt        # Python dependencies

@@ -2,23 +2,30 @@ import sqlite3
 import os
 import shutil
 
-# [M1 FIX] Store database in XDG-compliant user data dir (~/.local/share/mglauncher/)
+# [M1 FIX] Store database in XDG-compliant user data dir (~/.local/share/safelauncher/)
 # instead of next to source files in the project directory. This keeps user data
 # separate from application code and follows freedesktop.org conventions.
 _XDG_DATA_HOME = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
-_APP_DATA_DIR = os.path.join(_XDG_DATA_HOME, "mglauncher")
+_APP_DATA_DIR = os.path.join(_XDG_DATA_HOME, "safelauncher")
 DEFAULT_DB_PATH = os.path.join(_APP_DATA_DIR, "library.db")
 
 # Legacy path in the project dir - migrated automatically on first run.
 _LEGACY_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "library.db")
+_OLD_APP_DB_PATH = os.path.join(_XDG_DATA_HOME, "mglauncher", "library.db")
 
 
 def _migrate_legacy_db(new_path: str) -> None:
-    """If an old library.db exists in the project directory, move it to the new XDG path."""
-    if os.path.isfile(_LEGACY_DB_PATH) and not os.path.isfile(new_path):
+    """Move databases from pre-SafeLauncher locations into the current XDG path."""
+    if os.path.isfile(new_path):
+        return
+
+    for legacy_path in (_LEGACY_DB_PATH, _OLD_APP_DB_PATH):
+        if not os.path.isfile(legacy_path):
+            continue
         try:
-            shutil.move(_LEGACY_DB_PATH, new_path)
+            shutil.move(legacy_path, new_path)
             print(f"[GameDatabase] Migrated library.db → {new_path}")
+            return
         except Exception as e:
             print(f"[GameDatabase] Could not migrate legacy DB: {e}")
 

@@ -1,8 +1,8 @@
 #!/bin/bash
-# Install MGLauncher Desktop Shortcut for Linux
+# Install SafeLauncher Desktop Shortcut for Linux
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DESKTOP_FILE="$HOME/.local/share/applications/mglauncher.desktop"
+DESKTOP_FILE="$HOME/.local/share/applications/safelauncher.desktop"
 ICON_PATH="$PROJECT_DIR/assets/logo.png"
 
 # Find python binary that has required dependencies installed (PyQt6 & requests)
@@ -27,7 +27,7 @@ cat <<EOF > "$DESKTOP_FILE"
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=MGLauncher
+Name=SafeLauncher
 Comment=Game Sandbox Launcher
 Exec="$PYTHON_BIN" "$PROJECT_DIR/main.py"
 Path=$PROJECT_DIR
@@ -35,7 +35,7 @@ Icon=$ICON_PATH
 Terminal=false
 Categories=Game;
 Keywords=game;launcher;sandbox;firejail;steam;
-StartupWMClass=MGLauncher
+StartupWMClass=SafeLauncher
 EOF
 
 chmod +x "$DESKTOP_FILE"
@@ -45,5 +45,5 @@ if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1
 fi
 
-echo "✓ MGLauncher desktop shortcut installed to $DESKTOP_FILE"
+echo "✓ SafeLauncher desktop shortcut installed to $DESKTOP_FILE"
 echo "  Using Python binary: $PYTHON_BIN"

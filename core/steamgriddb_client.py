@@ -5,11 +5,11 @@ import hashlib
 from pathlib import Path
 from typing import Optional, List, Dict
 
-# [M2 FIX] XDG-compliant cache directory: ~/.cache/mglauncher/banners/
+# [M2 FIX] XDG-compliant cache directory: ~/.cache/safelauncher/banners/
 # Owner-only permissions (700 on dir, 600 on files) to prevent other local users
 # from reading cached cover art files.
 _XDG_CACHE_HOME = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
-_DEFAULT_CACHE_DIR = os.path.join(_XDG_CACHE_HOME, "mglauncher", "banners")
+_DEFAULT_CACHE_DIR = os.path.join(_XDG_CACHE_HOME, "safelauncher", "banners")
 _LEGACY_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".banner_cache")
 
 
@@ -36,7 +36,7 @@ class SteamGridDBClient:
         self.rawg_api_key = rawg_api_key or os.environ.get("RAWG_API_KEY")
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'MGLauncher/1.0 (Game Launcher)'
+            'User-Agent': 'SafeLauncher/1.0 (Game Launcher)'
         })
 
     def _migrate_legacy_cache(self) -> None:

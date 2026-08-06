@@ -1,4 +1,4 @@
-# MGLauncher - Python Game Sandbox Launcher
+# SafeLauncher - Python Game Sandbox Launcher
 
 ## Quick Start
 
@@ -84,7 +84,7 @@ sudo pacman -S python firejail wine
 ## File Structure
 
 ```
-MGLauncher/
+SafeLauncher/
 ├── main.py                 # Entry point
 ├── database.py             # Game library database
 ├── launcher.sh             # Bash launcher script

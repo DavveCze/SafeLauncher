@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to verify MGLauncher components work correctly
+Test script to verify SafeLauncher components work correctly
 """
 
 import sys
@@ -174,4 +174,4 @@ except Exception as e:
     print(f"✗ UI Instantiation error: {e}")
     sys.exit(1)
 
-print("\n✅ All MGLauncher components tested and working cleanly!")
+print("\n✅ All SafeLauncher components tested and working cleanly!")

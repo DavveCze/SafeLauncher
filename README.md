@@ -1,4 +1,4 @@
-# MGLauncher - Game Sandbox Launcher
+# SafeLauncher - Game Sandbox Launcher
 
 A PyQt6-based GUI launcher for sandboxed games using Firejail. Manage your game library and launch games in isolated sandboxes with Wine/UMU support.
 
@@ -35,14 +35,14 @@ A PyQt6-based GUI launcher for sandboxed games using Firejail. Manage your game 
 ### For users: download and run the AppImage
 
 There is no Python setup or `pip` command needed. Download the latest
-`MGLauncher-x86_64.AppImage`, make it executable once, and launch it:
+`SafeLauncher-x86_64.AppImage`, make it executable once, and launch it:
 
 ```bash
-chmod +x MGLauncher-x86_64.AppImage
-./MGLauncher-x86_64.AppImage
+chmod +x SafeLauncher-x86_64.AppImage
+./SafeLauncher-x86_64.AppImage
 ```
 
-The AppImage includes MGLauncher, Python, PyQt6, requests, and Pillow. You
+The AppImage includes SafeLauncher, Python, PyQt6, requests, and Pillow. You
 still need Firejail and Wine or UMU installed for Windows game launching.
 Steam, graphics drivers, and game files are provided by the host system.
 
@@ -54,7 +54,7 @@ sudo apt install firejail wine       # Ubuntu/Debian
 # sudo pacman -S firejail wine        # Arch
 ```
 
-MGLauncher will tell you when a required host tool is missing.
+SafeLauncher will tell you when a required host tool is missing.
 
 ## Usage
 
@@ -88,8 +88,8 @@ MGLauncher will tell you when a required host tool is missing.
 
 ## Configuration
 
-Your library and settings are stored in `~/.local/share/mglauncher/`.
-Downloaded artwork is cached in `~/.cache/mglauncher/`.
+Your library and settings are stored in `~/.local/share/safelauncher/`.
+Downloaded artwork is cached in `~/.cache/safelauncher/`.
 
 ## Troubleshooting
 

@@ -13,4 +13,4 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt pyinstaller
 COPY . .
 
-CMD ["bash", "-lc", "APPIMAGE_TOOL_ARGS=--appimage-extract-and-run packaging/build-appimage.sh && cp dist/MGLauncher-x86_64.AppImage /out/"]
+CMD ["bash", "-lc", "APPIMAGE_TOOL_ARGS=--appimage-extract-and-run packaging/build-appimage.sh && cp dist/SafeLauncher-x86_64.AppImage /out/"]

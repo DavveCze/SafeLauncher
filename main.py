@@ -6,7 +6,7 @@ from core.firejail_runner import FirejailSandboxRunner
 from core.zip_backup import ZipBackupManager
 from ui.main_window import MainWindow
 
-SERVER_NAME = "MGLauncher_SingleInstance_Server"
+SERVER_NAME = "SafeLauncher_SingleInstance_Server"
 
 def main():
     app = QApplication(sys.argv)
@@ -15,7 +15,7 @@ def main():
     socket = QLocalSocket()
     socket.connectToServer(SERVER_NAME)
     if socket.waitForConnected(500):
-        # An existing instance of MGLauncher is already running!
+        # An existing instance of SafeLauncher is already running!
         # Send activate signal to bring existing window to front, then exit.
         socket.write(b"ACTIVATE")
         socket.waitForBytesWritten(1000)
