@@ -1,0 +1,83 @@
+For developers: build the AppImage
+
+You only need Docker and internet access. From the repository root, run:
+
+./packaging/build-appimage-docker.sh
+
+That command installs the build dependencies inside Docker, builds the application, and creates dist/MGLauncher-x86_64.AppImage. Share that single file with users; they do not need Docker, Python, PyQt6, or the source tree.
+Optional: run from source
+
+This is only needed for development. It is not required to use the AppImage.
+
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python main.py
+
+To add an application-menu shortcut for the source checkout:
+
+./install_desktop_entry.sh
+
+Usage
+Launch the Application
+
+python main.py
+
+Add a Game
+
+    Click Add Game button
+    Enter game name
+    Click Browse... and select the game directory
+    Enter the executable filename (e.g., game.exe)
+    Select launch mode (UMU or Wine)
+    Click Add
+
+Launch a Game
+
+    Double-click a game in the library, OR
+    Select a game and click ▶ Launch Selected Game
+
+Export Saves
+
+    Select a game
+    Click 💾 Export Save
+    Choose location and filename
+    Save is packaged as ZIP
+
+Import Saves
+
+    Select a game
+    Click 📂 Import Save
+    Select a ZIP file with save data
+    Save is extracted to game directory
+
+Project Structure
+
+MGLauncher/
+├── main.py                 # Entry point - launches PyQt6 app
+├── database.py             # SQLite database management
+├── requirements.txt        # Python dependencies
+├── core/
+│   ├── __init__.py
+│   ├── interfaces.py       # Abstract base classes
+│   ├── firejail_runner.py  # Sandbox execution
+│   └── zip_backup.py       # Save import/export
+└── ui/
+    ├── __init__.py
+    └── main_window.py      # PyQt6 UI components
+
+Configuration
+
+Games are stored in an SQLite database (library.db) in the project directory.
+Troubleshooting
+
+Firejail Permission Denied:
+
+sudo chmod u+s /usr/bin/firejail
+
+Wine Prefix Issues: Games automatically create Wine prefix in <game_path>/prefix
+
+UMU Not Found: Install UMU from the official repository or use Wine mode instead
+License
+
+Created for personal use

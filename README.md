@@ -25,10 +25,10 @@ A PyQt6-based GUI launcher for sandboxed games using Firejail. Manage your game 
 
 ## Requirements
 
-- Python 3.9+
-- PyQt6
-- Firejail (for sandboxing)
-- Wine or UMU (for running Windows games)
+- Linux desktop
+- Firejail for sandboxing
+- Wine or UMU for Windows games
+- Steam and graphics drivers as required by your games
 
 ## Installation
 
@@ -56,42 +56,7 @@ sudo apt install firejail wine       # Ubuntu/Debian
 
 MGLauncher will tell you when a required host tool is missing.
 
-### For developers: build the AppImage
-
-You only need Docker and internet access. From the repository root, run:
-
-```bash
-./packaging/build-appimage-docker.sh
-```
-
-That command installs the build dependencies inside Docker, builds the
-application, and creates `dist/MGLauncher-x86_64.AppImage`. Share that single
-file with users; they do not need Docker, Python, PyQt6, or the source tree.
-
-### Optional: run from source
-
-This is only needed for development. It is not required to use the AppImage.
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python main.py
-```
-
-To add an application-menu shortcut for the source checkout:
-
-```bash
-./install_desktop_entry.sh
-```
-
 ## Usage
-
-### Launch the Application
-
-```bash
-python main.py
-```
 
 ### Add a Game
 
@@ -121,26 +86,10 @@ python main.py
 3. Select a ZIP file with save data
 4. Save is extracted to game directory
 
-## Project Structure
-
-```
-MGLauncher/
-├── main.py                 # Entry point - launches PyQt6 app
-├── database.py             # SQLite database management
-├── requirements.txt        # Python dependencies
-├── core/
-│   ├── __init__.py
-│   ├── interfaces.py       # Abstract base classes
-│   ├── firejail_runner.py  # Sandbox execution
-│   └── zip_backup.py       # Save import/export
-└── ui/
-    ├── __init__.py
-    └── main_window.py      # PyQt6 UI components
-```
-
 ## Configuration
 
-Games are stored in an SQLite database (`library.db`) in the project directory.
+Your library and settings are stored in `~/.local/share/mglauncher/`.
+Downloaded artwork is cached in `~/.cache/mglauncher/`.
 
 ## Troubleshooting
 
