@@ -1,6 +1,7 @@
 import os
 import subprocess
 from typing import List, Optional, Dict
+from core.host_process import host_process_env
 
 DEFAULT_SANDBOX_DIR = os.path.expanduser("~/Games/Sandbox")
 CONFIG_FILE = ".sandbox-config"
@@ -82,7 +83,7 @@ def extract_archive_sandboxed(archive_path: str, dest_dir: str) -> bool:
         return False
 
     try:
-        res = subprocess.run(cmd, shell=False, capture_output=True, text=True)
+        res = subprocess.run(cmd, shell=False, capture_output=True, text=True, env=host_process_env())
         # Treat only a zero exit status as success. Exit code 1 means the
         # extractor reported an error or warning and must not be silently
         # accepted as a complete installation.

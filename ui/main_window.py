@@ -17,6 +17,7 @@ from core.steam_tags import SteamTagsFetcher
 from core.steam_build_tracker import SteamBuildFetcher
 from core.disk_utils import get_dir_size, format_size, get_disk_usage
 from core.discord_rpc import DiscordRPC
+from core.host_process import host_process_env
 from core.archive_extractor import (
     DEFAULT_SANDBOX_DIR, ensure_sandbox_dir, extract_archive_sandboxed,
     find_executables, save_sandbox_config, load_sandbox_config, scan_sandbox_games
@@ -680,7 +681,7 @@ class UmuBootstrapWorker(QThread):
             # the regular launch interface instead: an empty PROTONPATH asks
             # UMU to download its current Proton, while a manual path is passed
             # through as an actual directory.
-            child_env = os.environ.copy()
+            child_env = host_process_env()
             child_env["WINEPREFIX"] = prefix
             child_env["GAMEID"] = "safelauncher-runtime"
             if self.proton_path and os.path.sep in self.proton_path:
@@ -1851,7 +1852,9 @@ class SafeLaunchDialog(QDialog):
             "could not find steamrt4",
             "an internet connection is required to setup umu",
         ))
-        if "no such file" in lower_details or "cannot open" in lower_details:
+        if "libcrypto.so" in lower_details or "openssl_" in lower_details:
+            reason += " A packaged launcher library was loaded by a host runtime tool. Restart using the updated SafeLauncher build."
+        elif "no such file" in lower_details or "cannot open" in lower_details:
             reason += " Check that the selected executable path is correct."
         elif "no permissions to create a new namespace" in lower_details or "unprivileged_userns_clone" in lower_details:
             reason += " The kernel has disabled unprivileged user namespaces; enable kernel.unprivileged_userns_clone=1 or use a compatible kernel/container configuration."
@@ -2311,7 +2314,7 @@ class ScreenshotGalleryDialog(QDialog):
     def _open_folder(self):
         import subprocess
         try:
-            subprocess.Popen(["xdg-open", self.screenshots_dir])
+            subprocess.Popen(["xdg-open", self.screenshots_dir], env=host_process_env())
         except Exception:
             pass
 
@@ -2425,7 +2428,7 @@ class DiskManagerDialog(QDialog):
         import subprocess
         try:
             if path and os.path.exists(path):
-                subprocess.Popen(["xdg-open", path])
+                subprocess.Popen(["xdg-open", path], env=host_process_env())
         except Exception:
             pass
 
@@ -3260,6 +3263,7 @@ class MainWindow(QMainWindow):
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True,
+                    env=host_process_env(),
                 )
                 return
             except OSError:
