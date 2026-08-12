@@ -502,7 +502,7 @@ class DialogTitleBar(QFrame):
 class AddGameDialog(QDialog):
     def __init__(self, parent=None, sgdb_client: SteamGridDBClient = None):
         super().__init__(parent)
-        self.setWindowTitle("Add / Install Game")
+        self.setWindowTitle("Add Game")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setFixedSize(860, 680)
         if os.path.exists(LOGO_PATH):
@@ -523,7 +523,7 @@ class AddGameDialog(QDialog):
         root_layout.setSpacing(0)
 
         # Custom Draggable Title Bar
-        self.title_bar = DialogTitleBar(self, "➕ Add / Install Game")
+        self.title_bar = DialogTitleBar(self, "➕ Add Game")
         root_layout.addWidget(self.title_bar)
 
         # Main Body Widget (2-Column Grid Layout)
@@ -551,7 +551,7 @@ class AddGameDialog(QDialog):
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("e.g., Portal 2, Cyberpunk 2077")
         self.name_input.setMinimumHeight(36)
-        form_layout.addRow("Game Title:", self.name_input)
+        form_layout.addRow("Game Name:", self.name_input)
 
         # Game Path
         self.path_input = QLineEdit()
@@ -587,10 +587,10 @@ class AddGameDialog(QDialog):
         # Launch Mode
         self.mode_combo = QComboBox()
         self.mode_combo.setMinimumHeight(36)
-        self.mode_combo.addItem(get_app_icon("shield"), "Primary: UMU (Proton/Wine - Offline)", "umu")
-        self.mode_combo.addItem(get_app_icon("globe"), "Secondary: UMU (Network Enabled)", "umu_net")
-        self.mode_combo.addItem(get_app_icon("wine"), "3rd: Legacy Wine (Standalone)", "wine")
-        self.mode_combo.addItem(get_app_icon("terminal"), "Native Linux Binary / Script", "linux")
+        self.mode_combo.addItem(get_app_icon("shield"), "UMU – Offline", "umu")
+        self.mode_combo.addItem(get_app_icon("globe"), "UMU – Network Enabled", "umu_net")
+        self.mode_combo.addItem(get_app_icon("wine"), "Wine – Legacy", "wine")
+        self.mode_combo.addItem(get_app_icon("terminal"), "Native Linux", "linux")
         form_layout.addRow("Runner Mode:", self.mode_combo)
 
         left_box.addLayout(form_layout)
@@ -611,7 +611,7 @@ class AddGameDialog(QDialog):
         right_box.setSpacing(12)
         right_box.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        sec_cover = QLabel("Cover Art Poster")
+        sec_cover = QLabel("Cover Art")
         sec_cover.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         sec_cover.setStyleSheet("color: #ffffff; padding-bottom: 5px;")
         right_box.addWidget(sec_cover)
@@ -635,7 +635,7 @@ class AddGameDialog(QDialog):
         self.fetch_btn.clicked.connect(self._fetch_banner)
         right_box.addWidget(self.fetch_btn)
 
-        skip_btn = QPushButton(" Clear Cover")
+        skip_btn = QPushButton(" Clear Cover Art")
         skip_btn.setIcon(get_icon("ph.x-circle-bold"))
         skip_btn.setMinimumHeight(32)
         skip_btn.clicked.connect(self._skip_banner)
@@ -971,8 +971,8 @@ class LaunchOptionsDialog(QDialog):
 
         # Option 1: UMU Primary
         btn_umu = self._create_option_button(
-            "Primary: UMU (Proton/Wine - Offline)",
-            "Recommended for offline single-player Windows games",
+            "UMU – Offline",
+            "Recommended for Windows games that do not need internet access",
             "shield"
         )
         btn_umu.clicked.connect(lambda: self._select("umu"))
@@ -980,8 +980,8 @@ class LaunchOptionsDialog(QDialog):
 
         # Option 2: UMU Network
         btn_umu_net = self._create_option_button(
-            "Secondary: UMU (Network Enabled)",
-            "Enables internet access for online features",
+            "UMU – Network Enabled",
+            "Allows internet access for online features",
             "globe"
         )
         btn_umu_net.clicked.connect(lambda: self._select("umu_net"))
@@ -989,8 +989,8 @@ class LaunchOptionsDialog(QDialog):
 
         # Option 3: Legacy Wine
         btn_wine = self._create_option_button(
-            "3rd: Legacy Wine (Standalone)",
-            "Runs directly via system Wine without Proton wrapper",
+            "Wine – Legacy",
+            "Runs directly with system Wine without the Proton wrapper",
             "wine"
         )
         btn_wine.clicked.connect(lambda: self._select("wine"))
@@ -999,7 +999,7 @@ class LaunchOptionsDialog(QDialog):
         # Option 4: Linux (if mode == 'linux')
         if mode == "linux":
             btn_linux = self._create_option_button(
-                "Native Linux Script / Binary",
+                "Native Linux",
                 "Runs directly as a native Linux executable in Firejail",
                 "terminal"
             )
@@ -2020,12 +2020,12 @@ class CustomTitleBar(QFrame):
         self.nav_library.setCheckable(True)
         self.nav_library.setChecked(True)
 
-        self.nav_sandbox = QPushButton(" Sandbox Folder")
+        self.nav_sandbox = QPushButton(" Open Sandbox Folder")
         self.nav_sandbox.setIcon(get_app_icon("sandbox"))
 
-        self.nav_install_zip = QPushButton(" Install Zip/7z")
+        self.nav_install_zip = QPushButton(" Install from Archive")
         self.nav_install_zip.setIcon(get_icon("ph.archive-bold"))
-        self.nav_install_zip.setToolTip("Extract and install game from ZIP or 7z archive")
+        self.nav_install_zip.setToolTip("Install a game from a ZIP, 7z, TAR, TAR.GZ, or TGZ archive")
 
         self.nav_sync = QPushButton()
         self.nav_sync.setIcon(get_app_icon("sync"))
@@ -2543,7 +2543,7 @@ class MainWindow(QMainWindow):
         action_layout.setContentsMargins(0, 5, 0, 0)
         action_layout.setSpacing(15)
         
-        self.btn_add = QPushButton(" Add / Install Game")
+        self.btn_add = QPushButton(" Add Game")
         self.btn_add.setIcon(get_app_icon("add"))
         self.btn_add.clicked.connect(self._on_add)
         self.btn_add.setMinimumHeight(42)
@@ -2769,7 +2769,7 @@ class MainWindow(QMainWindow):
         """Install game by picking a zip/7z archive directly from the top bar."""
         zip_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Select Game Zip/7z Archive",
+            "Select Game Archive",
             "",
             "Archive Files (*.zip *.7z *.tar.gz *.rar)"
         )
@@ -2857,7 +2857,7 @@ class MainWindow(QMainWindow):
         self.stat_label.setText(f"{len(self.games)} Game(s) Total")
 
         if not self.games:
-            label = QLabel("🎮 No games in library yet.\nClick 'Add / Install Game' or 'Sync Library' to get started!")
+            label = QLabel("🎮 No games in your library yet.\nClick 'Add Game' or 'Sync Library' to get started!")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("color: #999; font-size: 14px; padding: 40px;")
             self.grid_container.set_banner_widgets([label])

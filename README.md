@@ -11,8 +11,9 @@ A PyQt6-based GUI launcher for sandboxed games using Firejail. Manage your game 
 
 🎮 **Sandbox Support**
 - UMU (Unified Multi-platform Utility) with Firejail
-- Wine with Firejail
-- No network isolation option available
+- Offline mode with network access disabled
+- Network-enabled mode for games that need online features
+- Legacy Wine mode with Firejail
 
 💾 **Save Management**
 - Export game saves as ZIP archives
@@ -60,17 +61,20 @@ SafeLauncher will tell you when a required host tool is missing.
 
 ### Add a Game
 
-1. Click **Add Game** button
+1. Click **Add Game**
 2. Enter game name
 3. Click **Browse...** and select the game directory
 4. Enter the executable filename (e.g., `game.exe`)
-5. Select launch mode (UMU or Wine)
+5. Select a runner mode
 6. Click **Add**
+
+To install a game from an archive, click **Install from Archive** and select a
+ZIP, 7z, TAR, TAR.GZ, or TGZ archive.
 
 ### Launch a Game
 
-- Double-click a game in the library, OR
-- Select a game and click **▶ Launch Selected Game**
+- Double-click a game in the library, or
+- Select a game and click **Launch Game**
 
 ### Export Saves
 

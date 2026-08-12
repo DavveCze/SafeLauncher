@@ -43,13 +43,15 @@ bash launcher.sh
 ## Features
 
 ### 🎮 Game Management
-- **Add Games**: Browse for game directory, set executable, choose launch mode
-- **Launch Games**: Single click or double-click to launch in sandbox
+- **Add Games**: Browse for a game directory, set the executable, and choose a runner mode
+- **Install from Archive**: Install a game from a ZIP, 7z, TAR, TAR.GZ, or TGZ archive
+- **Launch Games**: Select a game and click **Launch Game**, or double-click it
 - **Remove Games**: Delete games from library (game files preserved)
 
 ### 🛡️ Security
 - Firejail sandboxing for Windows games
-- Network isolation option (no network by default for UMU)
+- Offline mode with network access disabled
+- Network-enabled mode for games that need online features
 - Separate Wine prefixes per game
 
 ### 💾 Save Backup
@@ -110,14 +112,15 @@ SafeLauncher/
 3. Click **Browse...** and select the game directory
 4. Enter the executable name (e.g., "portal2.exe")
 5. Select launch mode:
-   - **UMU**: Better compatibility for newer Windows games (requires UMU installed)
-   - **Wine**: Classic Wine runner (more compatible)
+   - **UMU – Offline**: Recommended for Windows games that do not need internet access
+   - **UMU – Network Enabled**: For games that need online features
+   - **Wine – Legacy**: Runs directly with system Wine
 6. Click **Add**
 
 ### Launching a Game
 
 - **Option 1**: Double-click the game in the list
-- **Option 2**: Select game and click **▶ Launch Selected Game**
+- **Option 2**: Select a game and click **Launch Game**
 
 The game will launch in a Firejail sandbox with:
 - Limited filesystem access (only the game directory)
@@ -164,7 +167,7 @@ sudo chmod u+s /usr/bin/firejail
 - **Backup saves regularly**: Use the export feature to create backups
 - **Test launch mode**: UMU and Wine have different compatibility levels
 - **Check game logs**: Wine logs are in `<game_path>/prefix/drive_c/windows/temp`
-- **Network isolation**: Default (no network) is safer but some games may need it
+- **Network access**: Offline mode is safer; use Network Enabled mode when a game needs internet access
 
 ## Development
 
