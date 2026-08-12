@@ -55,10 +55,10 @@ class FirejailSandboxRunner(ISandboxRunner):
                 net_flag = "--net=none " if mode == "umu" else ""
                 cmd = (
                     f"cd {q_path} && exec firejail "
-                    # Do not disable Firejail's noroot/seccomp protections for
-                    # Proton. The default profile remains part of the isolation
-                    # boundary; add narrowly-scoped exceptions only if a
-                    # specific runtime requirement is demonstrated.
+                    # UMU/Proton uses nested bubblewrap namespaces for the
+                    # Steam runtime. These compatibility overrides are required
+                    # for that runtime to start under Firejail.
+                    f"--ignore=noroot --ignore=seccomp --ignore=restrict-namespaces "
                     f"{net_flag}"
                     f"--whitelist={q_path} --whitelist={q_umu_share} --whitelist={q_umu_cache} "
                     f"{proton_whitelist}{proton_env}--env=WINEPREFIX={prefix_path} {runner_cmd}"

@@ -1,5 +1,7 @@
 import os
 import shutil
+import tempfile
+import subprocess
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QGridLayout, QFileDialog, QMessageBox, QDialog, QLabel, QLineEdit,
@@ -513,6 +515,7 @@ class DialogTitleBar(QFrame):
 
 class UserSettingsDialog(QDialog):
     """Small settings popup for launcher-wide profile preferences."""
+    runtime_manager_requested = pyqtSignal()
     def __init__(self, user_name: str, proton_path: str = "", parent=None):
         super().__init__(parent)
         self.setWindowTitle("SafeLauncher Settings")
@@ -547,6 +550,11 @@ class UserSettingsDialog(QDialog):
         proton_hint.setStyleSheet("color: #888888; font-size: 11px; font-weight: normal;")
         layout.addWidget(proton_hint)
 
+        runtime_manager = QPushButton("Open UMU Runtime Manager…")
+        runtime_manager.setStyleSheet("QPushButton { background: #1e293b; border: 1px solid #334155; } QPushButton:hover { background: #334155; }")
+        runtime_manager.clicked.connect(self._open_runtime_manager)
+        layout.addWidget(runtime_manager)
+
         form = QFormLayout()
         self.name_input = QLineEdit(user_name)
         self.name_input.setPlaceholderText("Your name")
@@ -575,6 +583,10 @@ class UserSettingsDialog(QDialog):
         path = QFileDialog.getExistingDirectory(self, "Select Proton tool directory", os.path.expanduser("~/.local/share"))
         if path:
             self.proton_input.setText(path)
+
+    def _open_runtime_manager(self):
+        self.runtime_manager_requested.emit()
+        self.reject()
 
     def get_user_name(self) -> str:
         return self.name_input.text().strip()
@@ -638,6 +650,195 @@ class ProtonSetupWizard(QDialog):
 
     def get_path(self) -> str:
         return self.path_input.text().strip()
+
+
+class UmuBootstrapWorker(QThread):
+    """Provision UMU's Proton and Steam Runtime using an explicit network step."""
+    output_line = pyqtSignal(str)
+    completed = pyqtSignal(bool, int)
+
+    def __init__(self, proton_path: str = "", parent=None):
+        super().__init__(parent)
+        self.proton_path = proton_path.strip() or "GE-Proton"
+        self.process = None
+
+    def stop(self):
+        """Stop the child process before allowing the QThread to be destroyed."""
+        if self.process and self.process.poll() is None:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait()
+
+    def run(self):
+        config_path = ""
+        try:
+            prefix = os.path.join(_APP_DATA_DIR, "umu-bootstrap-prefix")
+            os.makedirs(prefix, mode=0o700, exist_ok=True)
+            # UMU has no standalone install subcommand. A harmless bootstrap
+            # config exercises its official download/setup path without opening
+            # a game. GE-Proton tells UMU to download/use the latest tool.
+            config = (
+                "[umu]\n"
+                f"proton = {self.proton_path!r}\n"
+                f"prefix = {prefix!r}\n"
+                "exe = '/usr/bin/true'\n"
+                "game_id = 'safelauncher-runtime'\n"
+            )
+            with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False) as file:
+                file.write(config)
+                config_path = file.name
+
+            command = ["umu-run", "--config", config_path]
+            self.output_line.emit("$ umu-run --config <bootstrap.toml>")
+            self.output_line.emit("Network access is enabled for runtime provisioning…")
+            self.process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+            for line in iter(self.process.stdout.readline, ""):
+                if line:
+                    self.output_line.emit(line.rstrip())
+            return_code = self.process.wait()
+            if not self.isInterruptionRequested():
+                self.completed.emit(return_code == 0, return_code)
+        except FileNotFoundError:
+            self.output_line.emit("ERROR: umu-run was not found. Install umu-launcher first.")
+            self.completed.emit(False, 127)
+        except Exception as error:
+            self.output_line.emit(f"ERROR: {error}")
+            self.completed.emit(False, 1)
+        finally:
+            self.process = None
+            if config_path:
+                try:
+                    os.unlink(config_path)
+                except OSError:
+                    pass
+
+
+class UmuRuntimeManagerDialog(QDialog):
+    """Package-manager-style UI for explicitly provisioning UMU runtimes."""
+    proton_path_selected = pyqtSignal(str)
+
+    def __init__(self, proton_path: str = "", parent=None):
+        super().__init__(parent)
+        self.worker = None
+        self.setWindowTitle("UMU Runtime Manager")
+        self.setMinimumSize(700, 500)
+        self.setStyleSheet("""
+            QDialog { background: #141414; color: #fff; }
+            QLabel { color: #d4d4d8; }
+            QLineEdit { background: #09090b; color: #fff; border: 1px solid #333; padding: 8px; border-radius: 5px; }
+            QPushButton { background: #2563eb; color: #fff; border: none; border-radius: 5px; padding: 8px 14px; font-weight: bold; }
+            QPushButton:hover { background: #1d4ed8; }
+            QPlainTextEdit { background: #09090b; color: #34d399; border: 1px solid #27272a; border-radius: 8px; font-family: monospace; font-size: 11px; }
+        """)
+        layout = QVBoxLayout(self)
+        title = QLabel("UMU Runtime Packages")
+        title.setFont(QFont("Arial", 17, QFont.Weight.Bold))
+        layout.addWidget(title)
+        layout.addWidget(QLabel("Download or repair Proton and the Steam Runtime before launching games offline."))
+
+        self.namespace_status = QLabel(self._namespace_tip())
+        self.namespace_status.setWordWrap(True)
+        self.namespace_status.setStyleSheet("background: #1c1917; color: #fed7aa; border: 1px solid #7c2d12; border-radius: 6px; padding: 9px; font-size: 11px;")
+        layout.addWidget(self.namespace_status)
+
+        row = QHBoxLayout()
+        self.proton_input = QLineEdit(proton_path)
+        self.proton_input.setPlaceholderText("GE-Proton (automatic) or a local Proton tool path")
+        row.addWidget(self.proton_input)
+        browse = QPushButton("Browse…")
+        browse.clicked.connect(self._browse)
+        row.addWidget(browse)
+        layout.addLayout(row)
+
+        self.status = QLabel("Ready. This step intentionally uses network access.")
+        self.status.setStyleSheet("color: #a1a1aa;")
+        layout.addWidget(self.status)
+        self.output = QPlainTextEdit()
+        self.output.setReadOnly(True)
+        layout.addWidget(self.output)
+
+        buttons = QHBoxLayout()
+        self.install_button = QPushButton("Download / Repair Runtime")
+        self.install_button.clicked.connect(self._start)
+        buttons.addWidget(self.install_button)
+        buttons.addStretch()
+        close = QPushButton("Close")
+        close.clicked.connect(self.accept)
+        buttons.addWidget(close)
+        layout.addLayout(buttons)
+
+    @staticmethod
+    def _namespace_tip() -> str:
+        """Explain the user-namespace requirement without changing system policy."""
+        try:
+            with open("/proc/sys/kernel/unprivileged_userns_clone", "r", encoding="utf-8") as file:
+                enabled = file.read().strip() == "1"
+        except (OSError, ValueError):
+            return (
+                "UMU/Proton may need unprivileged user namespaces for bubblewrap. "
+                "This system does not expose the Debian-style status switch. "
+                "The launcher will not change kernel security settings automatically."
+            )
+
+        state = "enabled" if enabled else "disabled"
+        return (
+            f"Compatibility: unprivileged user namespaces are currently {state}. "
+            "UMU/Proton may fail with ‘bwrap: No permissions to create a new namespace’ when disabled. "
+            "If you trust the software and use a fully updated personal desktop, enable it temporarily with "
+            "`sudo sysctl -w kernel.unprivileged_userns_clone=1`. Revert with "
+            "`sudo sysctl -w kernel.unprivileged_userns_clone=0`. "
+            "Enabling it expands kernel attack surface; SafeLauncher never changes this setting automatically."
+        )
+
+    def _browse(self):
+        path = QFileDialog.getExistingDirectory(self, "Select Proton tool directory", os.path.expanduser("~/.local/share"))
+        if path:
+            self.proton_input.setText(path)
+
+    def _start(self):
+        if self.worker and self.worker.isRunning():
+            return
+        path = self.proton_input.text().strip()
+        if path and os.path.sep in path:
+            path = os.path.realpath(os.path.expanduser(path))
+            if not os.path.isdir(path):
+                QMessageBox.warning(self, "Invalid Proton path", "Choose an existing Proton tool directory, or leave the field as GE-Proton.")
+                return
+            self.proton_input.setText(path)
+            self.proton_path_selected.emit(path)
+        self.output.clear()
+        self.status.setText("Downloading and validating UMU runtime…")
+        self.install_button.setEnabled(False)
+        self.worker = UmuBootstrapWorker(path, self)
+        self.worker.output_line.connect(self.output.appendPlainText)
+        self.worker.completed.connect(self._finished)
+        self.worker.start()
+
+    def _finished(self, success: bool, return_code: int):
+        self.install_button.setEnabled(True)
+        if success:
+            self.status.setText("Runtime ready. Normal game launches can remain offline.")
+            self.status.setStyleSheet("color: #34d399; font-weight: bold;")
+        else:
+            self.status.setText(f"Runtime setup failed (exit code {return_code}). Check the log above.")
+            self.status.setStyleSheet("color: #fca5a5; font-weight: bold;")
+
+    def closeEvent(self, event):
+        if self.worker and self.worker.isRunning():
+            self.worker.requestInterruption()
+            self.worker.stop()
+            self.worker.quit()
+            self.worker.wait(5000)
+        super().closeEvent(event)
 
 
 class AddGameDialog(QDialog):
@@ -1649,9 +1850,18 @@ class SafeLaunchDialog(QDialog):
             reason = f"Proton/UMU exited with code {return_code}."
 
         lower_details = details.lower()
-        self.requires_proton_setup = "protonpath" in lower_details or "proton not found" in lower_details
+        self.requires_proton_setup = any(marker in lower_details for marker in (
+            "protonpath",
+            "proton not found",
+            "umu has not been setup",
+            "steamrt4 validation failed",
+            "could not find steamrt4",
+            "an internet connection is required to setup umu",
+        ))
         if "no such file" in lower_details or "cannot open" in lower_details:
             reason += " Check that the selected executable path is correct."
+        elif "no permissions to create a new namespace" in lower_details or "unprivileged_userns_clone" in lower_details:
+            reason += " The kernel has disabled unprivileged user namespaces; enable kernel.unprivileged_userns_clone=1 or use a compatible kernel/container configuration."
         elif "proton" in lower_details or "umu" in lower_details:
             reason += " Check the Proton/UMU runtime and the game prefix."
 
@@ -2909,6 +3119,7 @@ class MainWindow(QMainWindow):
     def _open_settings(self):
         """Open launcher preferences and persist profile changes."""
         dialog = UserSettingsDialog(self.user_name, self.proton_path, self)
+        dialog.runtime_manager_requested.connect(self._open_runtime_manager)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.user_name = dialog.get_user_name()
             self.proton_path = dialog.get_proton_path()
@@ -2917,6 +3128,17 @@ class MainWindow(QMainWindow):
             if hasattr(self.runner, "set_proton_path"):
                 self.runner.set_proton_path(self.proton_path)
             self._show_toast(f"✓ Display name changed to {self.user_name}.")
+
+    def _open_runtime_manager(self):
+        manager = UmuRuntimeManagerDialog(self.proton_path, self)
+        manager.proton_path_selected.connect(self._set_proton_path)
+        manager.exec()
+
+    def _set_proton_path(self, proton_path: str):
+        self.proton_path = proton_path
+        self.settings.setValue("proton_path", proton_path)
+        if hasattr(self.runner, "set_proton_path"):
+            self.runner.set_proton_path(proton_path)
 
     def _setup_tray_icon(self):
         """Setup system tray icon with quick launch context menu for favorites and recently played games."""
