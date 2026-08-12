@@ -1,4 +1,5 @@
 import urllib.request
+import urllib.parse
 import json
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -14,11 +15,16 @@ class SteamTagsFetcher(QThread):
 
     def run(self):
         try:
+            if self.isInterruptionRequested():
+                return
             query = urllib.parse.quote(self.game_name)
             search_url = f"https://store.steampowered.com/api/storesearch/?term={query}&l=english&cc=US"
             req = urllib.request.Request(search_url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=5) as response:
                 search_data = json.loads(response.read().decode("utf-8"))
+
+            if self.isInterruptionRequested():
+                return
 
             items = search_data.get("items", [])
             if not items:
@@ -30,6 +36,9 @@ class SteamTagsFetcher(QThread):
             req_detail = urllib.request.Request(detail_url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req_detail, timeout=5) as response:
                 detail_data = json.loads(response.read().decode("utf-8"))
+
+            if self.isInterruptionRequested():
+                return
 
             app_data = detail_data.get(str(app_id), {}).get("data", {})
             if not app_data:

@@ -31,6 +31,10 @@ def _migrate_legacy_db(new_path: str) -> None:
 
 
 class GameDatabase:
+    GAME_COLUMNS = (
+        "id, name, path, executable, mode, banner_url, steam_id, "
+        "playtime_seconds, is_favorite, last_played, tags, build_id"
+    )
     def __init__(self, db_path: str = None):
         if db_path is None or db_path == "library.db":
             db_path = DEFAULT_DB_PATH
@@ -160,7 +164,7 @@ class GameDatabase:
 
     def get_all_games(self):
         cursor = self.conn.cursor()
-        cursor.execute('SELECT * FROM games')
+        cursor.execute(f'SELECT {self.GAME_COLUMNS} FROM games')
         return cursor.fetchall()
 
     def remove_game(self, game_id: int):

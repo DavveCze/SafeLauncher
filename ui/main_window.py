@@ -5,9 +5,9 @@ from PyQt6.QtWidgets import (
     QGridLayout, QFileDialog, QMessageBox, QDialog, QLabel, QLineEdit,
     QComboBox, QFormLayout, QScrollArea, QFrame, QListWidget, QListWidgetItem, QMenu,
     QApplication, QSystemTrayIcon, QCheckBox, QGraphicsOpacityEffect, QPlainTextEdit, QProgressBar,
-    QGraphicsDropShadowEffect, QStackedWidget, QSlider
+    QGraphicsDropShadowEffect, QStackedWidget, QSlider, QDialogButtonBox
 )
-from PyQt6.QtCore import Qt, QSize, QPoint, QThread, pyqtSignal, QVariantAnimation, QEasingCurve, QTimer, QEvent, QAbstractAnimation, QUrl
+from PyQt6.QtCore import Qt, QSize, QPoint, QThread, pyqtSignal, QVariantAnimation, QEasingCurve, QTimer, QEvent, QAbstractAnimation, QUrl, QSettings
 from PyQt6.QtGui import QPixmap, QFont, QColor, QIcon, QPainter, QPen, QRadialGradient, QLinearGradient, QMovie, QDesktopServices
 from core.interfaces import ISandboxRunner, IBackupManager
 from core.steamgriddb_client import SteamGridDBClient
@@ -25,6 +25,18 @@ from ui.icons import get_app_icon, get_icon
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGO_PATH = os.path.join(BASE_DIR, "assets", "logo.png")
+
+
+def asset_path(filename: str) -> str:
+    """Return an asset path that works from source and PyInstaller builds."""
+    candidates = [
+        os.path.join(BASE_DIR, "assets", filename),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", filename),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate)
+    return os.path.abspath(candidates[0])
 
 class BannerFetcher(QThread):
     """Background thread for searching game banners - thread-safe"""
@@ -497,6 +509,57 @@ class DialogTitleBar(QFrame):
     def mouseReleaseEvent(self, event):
         self.drag_pos = None
         super().mouseReleaseEvent(event)
+
+
+class UserSettingsDialog(QDialog):
+    """Small settings popup for launcher-wide profile preferences."""
+    def __init__(self, user_name: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("SafeLauncher Settings")
+        self.setWindowIcon(QIcon(LOGO_PATH) if os.path.exists(LOGO_PATH) else QIcon())
+        self.setMinimumWidth(390)
+        self.setStyleSheet("""
+            QDialog { background: #141414; color: #ffffff; }
+            QLabel { color: #d4d4d8; font-weight: bold; }
+            QLineEdit {
+                background: #0d0d0d; color: #ffffff; border: 1px solid #333333;
+                border-radius: 5px; padding: 8px;
+            }
+            QLineEdit:focus { border-color: #3b82f6; }
+            QPushButton {
+                background: #2563eb; color: #ffffff; border: none;
+                border-radius: 5px; padding: 8px 18px; font-weight: bold;
+            }
+            QPushButton:hover { background: #1d4ed8; }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(22, 20, 22, 18)
+        title = QLabel("Profile")
+        title.setFont(QFont("Arial", 15, QFont.Weight.Bold))
+        layout.addWidget(title)
+        hint = QLabel("Choose the name used in launch greetings.")
+        hint.setStyleSheet("color: #888888; font-weight: normal;")
+        layout.addWidget(hint)
+
+        form = QFormLayout()
+        self.name_input = QLineEdit(user_name)
+        self.name_input.setPlaceholderText("Your name")
+        self.name_input.selectAll()
+        form.addRow("Display name:", self.name_input)
+        layout.addLayout(form)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Save)
+        buttons.rejected.connect(self.reject)
+        buttons.accepted.connect(self._save)
+        layout.addWidget(buttons)
+
+    def _save(self):
+        if self.name_input.text().strip():
+            self.accept()
+
+    def get_user_name(self) -> str:
+        return self.name_input.text().strip()
 
 
 class AddGameDialog(QDialog):
@@ -1161,8 +1224,8 @@ def draw_custom_lock_pixmap(size: int = 80, is_ready: bool = False) -> QPixmap:
     return pix
 
 
-GIF_PATH = "/home/martin/Stažené/penguin-pudgy.gif"
-CONFIRM_GIF_PATH = "/home/martin/Stažené/smict.gif"
+GIF_PATH = asset_path("penguin-pudgy.gif")
+CONFIRM_GIF_PATH = asset_path("smict.gif")
 
 
 class SafeLaunchDialog(QDialog):
@@ -1177,6 +1240,12 @@ class SafeLaunchDialog(QDialog):
         self.game_name = game_name
         self.user_name = user_name
         self.process = process
+        self.log_lines = []
+        self.launch_finished = False
+        self.handoff_shown = False
+        import time
+        self.startup_started_at = time.monotonic()
+        self.startup_grace_seconds = 15.0
 
         self.setWindowTitle(f"Safe Launch - {game_name}")
         self.setFixedSize(500, 360)
@@ -1300,6 +1369,42 @@ class SafeLaunchDialog(QDialog):
         self.stack.addWidget(self.page_console)
 
         # ---------------------------------------------------------------------
+        # PAGE 3: Launch failure screen
+        # ---------------------------------------------------------------------
+        self.page_error = QWidget()
+        error_layout = QVBoxLayout(self.page_error)
+        error_layout.setContentsMargins(10, 16, 10, 10)
+        error_layout.setSpacing(12)
+
+        self.error_title = QLabel("Game launch failed")
+        self.error_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.error_title.setStyleSheet("color: #fca5a5; font-size: 19px; font-weight: bold;")
+        error_layout.addWidget(self.error_title)
+
+        self.error_summary = QLabel()
+        self.error_summary.setWordWrap(True)
+        self.error_summary.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.error_summary.setStyleSheet("color: #d4d4d8; font-size: 12px;")
+        error_layout.addWidget(self.error_summary)
+
+        self.error_details = QPlainTextEdit()
+        self.error_details.setReadOnly(True)
+        self.error_details.setStyleSheet("""
+            QPlainTextEdit {
+                background: #09090b; color: #fca5a5; border: 1px solid #7f1d1d;
+                border-radius: 8px; font-family: monospace; font-size: 10px; padding: 8px;
+            }
+        """)
+        error_layout.addWidget(self.error_details)
+
+        close_error = QPushButton("Close")
+        close_error.setMinimumHeight(36)
+        close_error.setStyleSheet("QPushButton { background: #991b1b; color: #ffffff; border-radius: 6px; font-weight: bold; } QPushButton:hover { background: #b91c1c; }")
+        close_error.clicked.connect(self.reject)
+        error_layout.addWidget(close_error)
+        self.stack.addWidget(self.page_error)
+
+        # ---------------------------------------------------------------------
         # PAGE 2: Confirmation Greeting Screen with smict.gif Animation
         # ---------------------------------------------------------------------
         self.page_confirm = QWidget()
@@ -1357,6 +1462,13 @@ class SafeLaunchDialog(QDialog):
             self.reader_thread.log_line.connect(self.append_log)
             self.reader_thread.start()
 
+        # Watch the actual child process. A fixed animation must not report
+        # success after Proton/UMU has already exited.
+        self.process_timer = QTimer(self)
+        self.process_timer.setInterval(200)
+        self.process_timer.timeout.connect(self._check_process_state)
+        self.process_timer.start()
+
         # Start on Page 0 (GIF Intro)
         self.stack.setCurrentIndex(0)
 
@@ -1382,34 +1494,103 @@ class SafeLaunchDialog(QDialog):
 
     def append_log(self, text: str):
         if text:
+            self.log_lines.append(text)
             self.console.appendPlainText(text)
+            if hasattr(self, "error_details") and self.stack.currentWidget() is self.page_error:
+                self.error_details.appendPlainText(text)
             sb = self.console.verticalScrollBar()
             if sb:
                 sb.setValue(sb.maximum())
 
+            # UMU can print a clean-looking exit (including exit code 0) when
+            # Proton never manages to keep the game alive. Treat this marker
+            # as an early-startup failure and let the process watcher collect
+            # the final exit code and remaining output.
+            if "parent is shutting down" in text.lower() and not self.launch_finished:
+                QTimer.singleShot(350, self._check_process_state)
+
     def _goto_confirmation_stage(self):
         """Phase 3: Transition to Confirmation Screen ('Enjoy your time, Martin! ✨')."""
+        if self.launch_finished:
+            return
+        # Do not transition to the success page if the child has already
+        # exited but the polling timer has not delivered its last tick yet.
+        if self.process and self.process.poll() is not None:
+            self._check_process_state()
+            return
+        # This is only a visual handoff. Keep watching the process because
+        # Proton/UMU may shut down immediately afterwards.
+        self.handoff_shown = True
         import time
         t_str = time.strftime("%H:%M:%S")
         self.append_log(f"[{t_str}] ✔️ [SUCCESS] Sandbox container initialized cleanly.")
         self.append_log(f"[{t_str}] ✨ [STATUS] Handing off control to {self.game_name}. Have fun!")
 
-        # Transition to Page 2 (Confirmation)
-        self.stack.setCurrentIndex(2)
+        # Transition to the confirmation page. Use the widget reference because
+        # the failure page is intentionally kept in the same stack.
+        self.stack.setCurrentWidget(self.page_confirm)
 
         # Hold confirmation screen for 2.5s, then fade out entire dialog
         self.close_timer = QTimer(self)
         self.close_timer.setSingleShot(True)
         self.close_timer.timeout.connect(self._fade_out_dialog)
-        self.close_timer.start(2500)
+        # Keep the watchdog alive through the common Proton startup window.
+        # If the game is still alive, the popup closes normally at the end.
+        self.close_timer.start(int(self.startup_grace_seconds * 1000))
+
+    def _check_process_state(self):
+        """Show actionable diagnostics when the runtime exits during startup."""
+        if not self.process or self.launch_finished:
+            return
+
+        return_code = self.process.poll()
+        if return_code is None:
+            return
+
+        import time
+        startup_elapsed = time.monotonic() - self.startup_started_at
+        if startup_elapsed > self.startup_grace_seconds:
+            self.launch_finished = True
+            self.process_timer.stop()
+            return
+
+        self.launch_finished = True
+        self.process_timer.stop()
+        if hasattr(self, "progress_anim"):
+            self.progress_anim.stop()
+        if hasattr(self, "gif_timer"):
+            self.gif_timer.stop()
+
+        details = "\n".join(self.log_lines[-18:])
+        if return_code < 0:
+            reason = f"The launcher was terminated by signal {-return_code}."
+        elif return_code == 0:
+            reason = "Proton/UMU exited before the game reached the running state."
+        else:
+            reason = f"Proton/UMU exited with code {return_code}."
+
+        lower_details = details.lower()
+        if "no such file" in lower_details or "cannot open" in lower_details:
+            reason += " Check that the selected executable path is correct."
+        elif "proton" in lower_details or "umu" in lower_details:
+            reason += " Check the Proton/UMU runtime and the game prefix."
+
+        self.error_summary.setText(reason)
+        self.error_details.setPlainText(details or "No diagnostic output was produced.")
+        self.stack.setCurrentWidget(self.page_error)
 
     def _fade_out_dialog(self):
         """Phase 4: Smooth opacity fade out of entire dialog before closing."""
+        if self.process and self.process.poll() is not None and not self.launch_finished:
+            self._check_process_state()
+            if self.stack.currentWidget() is self.page_error:
+                return
         fade_dialog = QVariantAnimation(self)
         fade_dialog.setStartValue(1.0)
         fade_dialog.setEndValue(0.0)
         fade_dialog.setDuration(500)
         fade_dialog.setEasingCurve(QEasingCurve.Type.OutCubic)
+        fade_dialog.valueChanged.connect(self.dialog_opacity.setOpacity)
         fade_dialog.finished.connect(self.accept)
         fade_dialog.start()
         self._fade_dialog = fade_dialog
@@ -1626,7 +1807,7 @@ class ToastNotification(QFrame):
         layout.setContentsMargins(14, 10, 14, 10)
         layout.setSpacing(8)
         
-        icon_name = "shield" if is_error else "library"
+        icon_name = "library" if is_error else "shield"
         icon_label = QLabel()
         icon_label.setPixmap(get_app_icon(icon_name).pixmap(16, 16))
         layout.addWidget(icon_label)
@@ -2104,6 +2285,14 @@ class CustomTitleBar(QFrame):
         self.stat_label.setStyleSheet("color: #777777; font-size: 11px; font-weight: bold; margin-right: 10px;")
         layout.addWidget(self.stat_label)
 
+        # Launcher-wide preferences
+        self.btn_settings = QPushButton()
+        self.btn_settings.setIcon(get_icon("ph.gear-bold", color="#aaaaaa"))
+        self.btn_settings.setFixedSize(32, 28)
+        self.btn_settings.setToolTip("Settings")
+        self.btn_settings.setStyleSheet("QPushButton { background: transparent; border-radius: 4px; padding: 0px; } QPushButton:hover { background: #222; }")
+        layout.addWidget(self.btn_settings)
+
         # Window Control Buttons (Minimize, Maximize/Restore, Close)
         btn_minimize = QPushButton()
         btn_minimize.setIcon(get_app_icon("minimize"))
@@ -2180,9 +2369,15 @@ class MainWindow(QMainWindow):
         self.selected_game = None
         self.banner_widgets = {}
         self.auto_fetchers = []
+        self.metadata_fetchers = []
+        self.metadata_attempted_builds = set()
+        self.metadata_attempted_tags = set()
         self.playtime_trackers = []  # keep references so GC doesn't kill running threads
+        self.games_by_id = {}
 
         self.search_query = ""
+        self.settings = QSettings("SafeLauncher", "SafeLauncher")
+        self.user_name = self.settings.value("user_name", "Martin", type=str).strip() or "Martin"
         self.current_filter = "all"
         self.current_sort = 0  # 0: A-Z, 1: Playtime, 2: Recently Added
 
@@ -2213,6 +2408,7 @@ class MainWindow(QMainWindow):
         self.nav_sync.clicked.connect(self._on_sync_sandbox)
         self.stat_label = self.title_bar.stat_label
         self.title_bar.search_changed.connect(self._on_search_query_changed)
+        self.title_bar.btn_settings.clicked.connect(self._open_settings)
 
         self.title_bar.act_export.triggered.connect(self._on_export)
         # Content Split Layout: Left Game Detail Panel + Right Game Library Grid
@@ -2627,6 +2823,14 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'title_bar'):
                 self.title_bar.btn_max.setIcon(get_app_icon("restore"))
 
+    def _open_settings(self):
+        """Open launcher preferences and persist profile changes."""
+        dialog = UserSettingsDialog(self.user_name, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.user_name = dialog.get_user_name()
+            self.settings.setValue("user_name", self.user_name)
+            self._show_toast(f"✓ Display name changed to {self.user_name}.")
+
     def _setup_tray_icon(self):
         """Setup system tray icon with quick launch context menu for favorites and recently played games."""
         if not QSystemTrayIcon.isSystemTrayAvailable():
@@ -2854,6 +3058,7 @@ class MainWindow(QMainWindow):
         self.banner_widgets.clear()
         
         self.games = self.db.get_all_games()
+        self.games_by_id = {game[0]: game for game in self.games}
         self.stat_label.setText(f"{len(self.games)} Game(s) Total")
 
         if not self.games:
@@ -2921,6 +3126,7 @@ class MainWindow(QMainWindow):
             if banner_url is None:
                 fetcher = BannerAutoFetcher(game_id, name, self.sgdb_client)
                 fetcher.banner_auto_downloaded.connect(self._on_auto_banner_downloaded)
+                fetcher.finished.connect(lambda f=fetcher: self._cleanup_auto_fetcher(f))
                 fetcher.start()
                 self.auto_fetchers.append(fetcher)
             
@@ -2948,8 +3154,28 @@ class MainWindow(QMainWindow):
         if game_id in self.banner_widgets:
             self.banner_widgets[game_id].set_banner(image_path)
 
+    def _cleanup_auto_fetcher(self, fetcher):
+        if fetcher in self.auto_fetchers:
+            self.auto_fetchers.remove(fetcher)
+
+    def _cancel_metadata_fetchers(self):
+        for fetcher in list(self.metadata_fetchers):
+            if fetcher.isRunning():
+                fetcher.requestInterruption()
+
+    def _track_metadata_fetcher(self, fetcher):
+        fetcher.finished.connect(lambda f=fetcher: self._cleanup_metadata_fetcher(f))
+        self.metadata_fetchers.append(fetcher)
+        fetcher.start()
+
+    def _cleanup_metadata_fetcher(self, fetcher):
+        if fetcher in self.metadata_fetchers:
+            self.metadata_fetchers.remove(fetcher)
+
     def _select_game_by_id(self, game_id: int):
         """Select a game card visually and update the left detail panel"""
+        if not self.selected_game or self.selected_game[0] != game_id:
+            self._cancel_metadata_fetchers()
         for widget in self.banner_widgets.values():
             widget.set_selected(False)
         for game in self.games:
@@ -3065,6 +3291,8 @@ class MainWindow(QMainWindow):
 
     def _on_steam_build_checked(self, game_id: int, latest_build_id: str, is_update_available: bool):
         """Callback when background SteamBuildFetcher returns build info."""
+        if not self.selected_game or self.selected_game[0] != game_id:
+            return
         if game_id in self.banner_widgets:
             self.banner_widgets[game_id].set_update_available(is_update_available)
 
@@ -3090,6 +3318,8 @@ class MainWindow(QMainWindow):
 
     def _on_steam_tags_found(self, game_id: int, tags_list: list):
         """Callback when background SteamTagsFetcher returns genres/categories"""
+        if not self.selected_game or self.selected_game[0] != game_id:
+            return
         if tags_list:
             tags_str = ", ".join(tags_list)
             self.db.update_game_tags(game_id, tags_str)
@@ -3140,10 +3370,14 @@ class MainWindow(QMainWindow):
         self.detail_disk_size.setText(f"💾 Size: {format_size(disk_bytes)}")
 
         local_build_id = game[11] if len(game) > 11 and game[11] else ""
-        if steam_id and steam_id != "0":
+        if steam_id and steam_id != "0" and game_id not in self.metadata_attempted_builds and not any(
+            isinstance(fetcher, SteamBuildFetcher) and fetcher.game_id == game_id
+            for fetcher in self.metadata_fetchers
+        ):
             fetcher = SteamBuildFetcher(game_id, steam_id, local_build_id, parent=self)
             fetcher.update_checked.connect(self._on_steam_build_checked)
-            fetcher.start()
+            self._track_metadata_fetcher(fetcher)
+            self.metadata_attempted_builds.add(game_id)
         else:
             self.detail_update_widget.setVisible(False)
 
@@ -3153,13 +3387,23 @@ class MainWindow(QMainWindow):
             self._update_tags_pills(tags_list)
         else:
             self._update_tags_pills([])
-            fetcher = SteamTagsFetcher(game_id, name, parent=self)
-            fetcher.tags_found.connect(self._on_steam_tags_found)
-            fetcher.start()
+            if game_id not in self.metadata_attempted_tags and not any(
+                isinstance(fetcher, SteamTagsFetcher) and fetcher.game_id == game_id
+                for fetcher in self.metadata_fetchers
+            ):
+                fetcher = SteamTagsFetcher(game_id, name, parent=self)
+                fetcher.tags_found.connect(self._on_steam_tags_found)
+                self._track_metadata_fetcher(fetcher)
+                self.metadata_attempted_tags.add(game_id)
 
         # Update Screenshot button badge count
         shots_dir = os.path.join(_APP_DATA_DIR, "screenshots", str(game_id))
-        count = len(os.listdir(shots_dir)) if os.path.exists(shots_dir) else 0
+        image_extensions = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+        count = sum(
+            1 for filename in os.listdir(shots_dir)
+            if os.path.isfile(os.path.join(shots_dir, filename))
+            and os.path.splitext(filename)[1].lower() in image_extensions
+        ) if os.path.exists(shots_dir) else 0
         self.btn_detail_screenshots.setText(f" Screenshots ({count})")
 
         self.btn_detail_fav.setChecked(is_fav)
@@ -3213,11 +3457,7 @@ class MainWindow(QMainWindow):
                 return
 
         try:
-            game_name = "Game"
-            for g in self.games:
-                if g[0] == game_id:
-                    game_name = g[1]
-                    break
+            game_name = self.games_by_id.get(game_id, (None, "Game"))[1]
 
             process = self.runner.launch(path, exe, selected_mode)
             if process:
@@ -3233,7 +3473,7 @@ class MainWindow(QMainWindow):
                 self.playtime_trackers.append(tracker)
 
                 # Show animated Safe Launch Popup with console log stream & greeting to Martin
-                popup = SafeLaunchDialog(game_name, user_name="Martin", process=process, parent=self)
+                popup = SafeLaunchDialog(game_name, user_name=self.user_name, process=process, parent=self)
                 popup.show()
                 QApplication.processEvents()
                 popup.exec()
@@ -3381,13 +3621,24 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             game_id = game[0]
             game_path = game[2]
+
+            resolved_path = os.path.realpath(os.path.expanduser(game_path))
+            if dialog.choice == 'delete_disk':
+                sandbox_root = os.path.realpath(os.path.expanduser(DEFAULT_SANDBOX_DIR))
+                try:
+                    inside_sandbox = os.path.commonpath([sandbox_root, resolved_path]) == sandbox_root
+                except ValueError:
+                    inside_sandbox = False
+                if not inside_sandbox or resolved_path == sandbox_root:
+                    self._show_toast("Refused to delete files outside the sandbox directory.", is_error=True)
+                    return
             
             self.db.remove_game(game_id)
             
             if dialog.choice == 'delete_disk':
-                if os.path.exists(game_path):
+                if os.path.exists(resolved_path):
                     try:
-                        shutil.rmtree(game_path)
+                        shutil.rmtree(resolved_path)
                         self._show_toast(f"✓ Removed '{game[1]}' and deleted files.")
                     except Exception as e:
                         self._show_toast(f"Failed to delete files: {e}", is_error=True)

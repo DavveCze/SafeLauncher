@@ -14,6 +14,8 @@ class SteamBuildFetcher(QThread):
         self.local_build_id = str(local_build_id).strip()
 
     def run(self):
+        if self.isInterruptionRequested():
+            return
         if not self.steam_id or self.steam_id == "0":
             self.update_checked.emit(self.game_id, "", False)
             return
@@ -27,6 +29,8 @@ class SteamBuildFetcher(QThread):
             with urllib.request.urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode("utf-8"))
+                    if self.isInterruptionRequested():
+                        return
                     app_data = data.get("data", {}).get(self.steam_id, {})
                     depots = app_data.get("depots", {})
                     branches = depots.get("branches", {})
@@ -35,9 +39,11 @@ class SteamBuildFetcher(QThread):
 
                     if latest_build_id:
                         is_update = bool(self.local_build_id and latest_build_id != self.local_build_id)
-                        self.update_checked.emit(self.game_id, latest_build_id, is_update)
+                        if not self.isInterruptionRequested():
+                            self.update_checked.emit(self.game_id, latest_build_id, is_update)
                         return
         except Exception:
             pass
 
-        self.update_checked.emit(self.game_id, "", False)
+        if not self.isInterruptionRequested():
+            self.update_checked.emit(self.game_id, "", False)

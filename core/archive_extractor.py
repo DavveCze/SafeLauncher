@@ -83,11 +83,10 @@ def extract_archive_sandboxed(archive_path: str, dest_dir: str) -> bool:
 
     try:
         res = subprocess.run(cmd, shell=False, capture_output=True, text=True)
-        # returncode 0 = clean success, 1 = minor warnings (e.g. non-fatal zip header warnings)
-        if res.returncode in (0, 1):
-            return True
-        # Fallback check: if dest_dir has extracted files, consider it successful
-        if os.path.exists(dest_abs) and len(os.listdir(dest_abs)) > 0:
+        # Treat only a zero exit status as success. Exit code 1 means the
+        # extractor reported an error or warning and must not be silently
+        # accepted as a complete installation.
+        if res.returncode == 0:
             return True
         print(f"Sandboxed extraction failed (exit {res.returncode}): {res.stderr}")
         return False

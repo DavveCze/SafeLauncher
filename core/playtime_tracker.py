@@ -32,12 +32,13 @@ class PlaytimeTrackerThread(QThread):
         # poll() returns None while the process is running; we spin briefly
         # (max 10s) until it has either started properly or already exited.
         deadline = time.monotonic() + 10.0
-        while time.monotonic() < deadline:
+        while True:
             if self.process.poll() is not None:
                 # Already exited before we even started timing — skip.
                 return
+            if time.monotonic() >= deadline:
+                return
             time.sleep(0.25)
-            # Once we've confirmed it's alive at least once, break out.
             if self.process.poll() is None:
                 break
 

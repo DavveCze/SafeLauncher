@@ -1,5 +1,6 @@
 import os
 import zipfile
+import inspect
 from core.interfaces import IBackupManager
 
 class ZipBackupManager(IBackupManager):
@@ -31,7 +32,8 @@ class ZipBackupManager(IBackupManager):
                     return False
             
             # Python 3.12+ safe extraction filter support
-            if hasattr(zipfile.ZipFile, 'extractall') and 'filter' in zipfile.ZipFile.extractall.__code__.co_varnames:
+            extractall_params = inspect.signature(zipfile.ZipFile.extractall).parameters
+            if "filter" in extractall_params:
                 zipf.extractall(dest_abs, filter='data')
             else:
                 zipf.extractall(dest_abs)

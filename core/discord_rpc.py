@@ -62,10 +62,11 @@ class DiscordRPC:
                     resp = self.sock.recv(length)
                     self.connected = True
                     return True
+                self._disconnect()
+                return False
             except Exception:
                 self._disconnect()
                 return False
-            return False
 
     def set_activity(self, game_name: str, start_timestamp: int = None, details: str = "Playing via SafeLauncher"):
         """Update Discord Rich Presence activity."""

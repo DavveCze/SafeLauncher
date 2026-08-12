@@ -46,7 +46,10 @@ class FirejailSandboxRunner(ISandboxRunner):
                 net_flag = "--net=none " if mode == "umu" else ""
                 cmd = (
                     f"cd {q_path} && exec firejail "
-                    f"--ignore=noroot --ignore=seccomp --ignore=restrict-namespaces "
+                    # Do not disable Firejail's noroot/seccomp protections for
+                    # Proton. The default profile remains part of the isolation
+                    # boundary; add narrowly-scoped exceptions only if a
+                    # specific runtime requirement is demonstrated.
                     f"{net_flag}"
                     f"--whitelist={q_path} --whitelist={q_umu_share} --whitelist={q_umu_cache} "
                     f"--env=WINEPREFIX={prefix_path} {runner_cmd}"
@@ -57,10 +60,11 @@ class FirejailSandboxRunner(ISandboxRunner):
         elif mode == "linux":
             full_exe_path = os.path.join(game_path, executable)
             if os.path.exists(full_exe_path):
-                try:
-                    os.chmod(full_exe_path, 0o755)
-                except Exception:
-                    pass
+                if not os.access(full_exe_path, os.X_OK):
+                    try:
+                        os.chmod(full_exe_path, os.stat(full_exe_path).st_mode | 0o111)
+                    except Exception:
+                        pass
             if has_firejail:
                 cmd = f"cd {q_path} && exec firejail --net=none --whitelist={q_path} ./{q_exe}"
             else:
@@ -77,7 +81,11 @@ class FirejailSandboxRunner(ISandboxRunner):
                 cmd = f"cd {q_path} && export WINEPREFIX={prefix_path} && {runner_cmd}"
 
         return subprocess.Popen(
-            ["/bin/bash", "-c", cmd],
+            # Keep the wrapper independent from bash/readline libraries inherited
+            # from Proton/Wine environments.  POSIX sh is sufficient for the
+            # commands above and avoids errors such as bash's
+            # "undefined symbol: rl_print_keybinding".
+            ["/bin/sh", "-c", cmd],
             shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
