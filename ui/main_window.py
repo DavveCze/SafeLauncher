@@ -513,7 +513,7 @@ class DialogTitleBar(QFrame):
 
 class UserSettingsDialog(QDialog):
     """Small settings popup for launcher-wide profile preferences."""
-    def __init__(self, user_name: str, parent=None):
+    def __init__(self, user_name: str, proton_path: str = "", parent=None):
         super().__init__(parent)
         self.setWindowTitle("SafeLauncher Settings")
         self.setWindowIcon(QIcon(LOGO_PATH) if os.path.exists(LOGO_PATH) else QIcon())
@@ -542,11 +542,24 @@ class UserSettingsDialog(QDialog):
         hint.setStyleSheet("color: #888888; font-weight: normal;")
         layout.addWidget(hint)
 
+        proton_hint = QLabel("Optional Proton path: a local GE-Proton/UMU-Proton tool folder.\nExample: ~/.local/share/umu/compatibilitytools/UMU-Proton-10.0-4\nYou can also use: ~/.local/share/Steam/compatibilitytools.d/GE-Proton*")
+        proton_hint.setWordWrap(True)
+        proton_hint.setStyleSheet("color: #888888; font-size: 11px; font-weight: normal;")
+        layout.addWidget(proton_hint)
+
         form = QFormLayout()
         self.name_input = QLineEdit(user_name)
         self.name_input.setPlaceholderText("Your name")
         self.name_input.selectAll()
         form.addRow("Display name:", self.name_input)
+        proton_row = QHBoxLayout()
+        self.proton_input = QLineEdit(proton_path)
+        self.proton_input.setPlaceholderText("Leave blank for UMU automatic detection")
+        proton_row.addWidget(self.proton_input)
+        browse = QPushButton("Browse…")
+        browse.clicked.connect(self._browse_proton)
+        proton_row.addWidget(browse)
+        form.addRow("Proton path:", proton_row)
         layout.addLayout(form)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Save)
@@ -558,8 +571,73 @@ class UserSettingsDialog(QDialog):
         if self.name_input.text().strip():
             self.accept()
 
+    def _browse_proton(self):
+        path = QFileDialog.getExistingDirectory(self, "Select Proton tool directory", os.path.expanduser("~/.local/share"))
+        if path:
+            self.proton_input.setText(path)
+
     def get_user_name(self) -> str:
         return self.name_input.text().strip()
+
+    def get_proton_path(self) -> str:
+        return self.proton_input.text().strip()
+
+
+class ProtonSetupWizard(QDialog):
+    """Recovery wizard for UMU failures caused by a missing PROTONPATH."""
+    def __init__(self, current_path: str = "", parent=None):
+        super().__init__(parent)
+        self.retry_with_network = False
+        self.setWindowTitle("Proton Setup Wizard")
+        self.setMinimumWidth(560)
+        self.setStyleSheet("QDialog { background: #141414; color: #fff; } QLabel { color: #d4d4d8; } QLineEdit { background: #09090b; color: #fff; border: 1px solid #333; padding: 8px; border-radius: 5px; } QPushButton { background: #2563eb; color: #fff; border: none; border-radius: 5px; padding: 8px 14px; font-weight: bold; }")
+        layout = QVBoxLayout(self)
+        title = QLabel("Proton runtime needs setup")
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        layout.addWidget(title)
+        message = QLabel("UMU could not find a Proton runtime. Normal launches use --net=none, so UMU cannot download Proton automatically. Select an existing Proton tool folder, or allow a one-time network-enabled retry.")
+        message.setWordWrap(True)
+        layout.addWidget(message)
+        form = QFormLayout()
+        row = QHBoxLayout()
+        self.path_input = QLineEdit(current_path)
+        self.path_input.setPlaceholderText("Example: ~/.local/share/umu/compatibilitytools/UMU-Proton-10.0-4")
+        row.addWidget(self.path_input)
+        browse = QPushButton("Browse…")
+        browse.clicked.connect(self._browse)
+        row.addWidget(browse)
+        form.addRow("Proton tool folder:", row)
+        layout.addLayout(form)
+        tips = QLabel("Tips: Steam compatibility tools are often in ~/.local/share/Steam/compatibilitytools.d/\nUMU tools are often in ~/.local/share/umu/compatibilitytools/")
+        tips.setStyleSheet("color: #a1a1aa; font-size: 11px;")
+        layout.addWidget(tips)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+        use_path = buttons.addButton("Save Path", QDialogButtonBox.ButtonRole.AcceptRole)
+        use_network = buttons.addButton("Retry with Network Once", QDialogButtonBox.ButtonRole.ActionRole)
+        use_path.clicked.connect(self._accept_path)
+        use_network.clicked.connect(self._accept_network)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _browse(self):
+        path = QFileDialog.getExistingDirectory(self, "Select Proton tool directory", os.path.expanduser("~/.local/share"))
+        if path:
+            self.path_input.setText(path)
+
+    def _accept_path(self):
+        path = os.path.realpath(os.path.expanduser(self.path_input.text().strip()))
+        if not os.path.isdir(path):
+            QMessageBox.warning(self, "Invalid Proton path", "Select an existing Proton tool directory.")
+            return
+        self.path_input.setText(path)
+        self.accept()
+
+    def _accept_network(self):
+        self.retry_with_network = True
+        self.accept()
+
+    def get_path(self) -> str:
+        return self.path_input.text().strip()
 
 
 class AddGameDialog(QDialog):
@@ -1243,6 +1321,7 @@ class SafeLaunchDialog(QDialog):
         self.log_lines = []
         self.launch_finished = False
         self.handoff_shown = False
+        self.requires_proton_setup = False
         import time
         self.startup_started_at = time.monotonic()
         self.startup_grace_seconds = 15.0
@@ -1570,6 +1649,7 @@ class SafeLaunchDialog(QDialog):
             reason = f"Proton/UMU exited with code {return_code}."
 
         lower_details = details.lower()
+        self.requires_proton_setup = "protonpath" in lower_details or "proton not found" in lower_details
         if "no such file" in lower_details or "cannot open" in lower_details:
             reason += " Check that the selected executable path is correct."
         elif "proton" in lower_details or "umu" in lower_details:
@@ -2378,6 +2458,9 @@ class MainWindow(QMainWindow):
         self.search_query = ""
         self.settings = QSettings("SafeLauncher", "SafeLauncher")
         self.user_name = self.settings.value("user_name", "Martin", type=str).strip() or "Martin"
+        self.proton_path = self.settings.value("proton_path", "", type=str).strip()
+        if hasattr(self.runner, "set_proton_path"):
+            self.runner.set_proton_path(self.proton_path)
         self.current_filter = "all"
         self.current_sort = 0  # 0: A-Z, 1: Playtime, 2: Recently Added
 
@@ -2825,10 +2908,14 @@ class MainWindow(QMainWindow):
 
     def _open_settings(self):
         """Open launcher preferences and persist profile changes."""
-        dialog = UserSettingsDialog(self.user_name, self)
+        dialog = UserSettingsDialog(self.user_name, self.proton_path, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.user_name = dialog.get_user_name()
+            self.proton_path = dialog.get_proton_path()
             self.settings.setValue("user_name", self.user_name)
+            self.settings.setValue("proton_path", self.proton_path)
+            if hasattr(self.runner, "set_proton_path"):
+                self.runner.set_proton_path(self.proton_path)
             self._show_toast(f"✓ Display name changed to {self.user_name}.")
 
     def _setup_tray_icon(self):
@@ -3477,6 +3564,18 @@ class MainWindow(QMainWindow):
                 popup.show()
                 QApplication.processEvents()
                 popup.exec()
+                if popup.requires_proton_setup:
+                    wizard = ProtonSetupWizard(self.proton_path, self)
+                    if wizard.exec() == QDialog.DialogCode.Accepted:
+                        proton_path = wizard.get_path()
+                        if proton_path:
+                            self.proton_path = proton_path
+                            self.settings.setValue("proton_path", proton_path)
+                            if hasattr(self.runner, "set_proton_path"):
+                                self.runner.set_proton_path(proton_path)
+                        retry_mode = "umu_net" if wizard.retry_with_network else selected_mode
+                        self._show_toast("Retrying Proton setup…")
+                        self._launch_mode(game_id, path, exe, retry_mode)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to launch game: {str(e)}")
 

@@ -8,6 +8,13 @@ _VALID_MODES = {"umu", "umu_net", "wine", "linux"}
 
 
 class FirejailSandboxRunner(ISandboxRunner):
+    def __init__(self):
+        self.proton_path = ""
+
+    def set_proton_path(self, proton_path: str) -> None:
+        """Set an optional local Proton/GE-Proton tool directory for UMU."""
+        self.proton_path = os.path.realpath(os.path.expanduser(proton_path.strip())) if proton_path.strip() else ""
+
     @staticmethod
     def check_dependencies() -> dict:
         """Returns dict of system dependencies status."""
@@ -39,6 +46,8 @@ class FirejailSandboxRunner(ISandboxRunner):
         q_umu_share = shlex.quote(umu_share)
         q_umu_cache = shlex.quote(umu_cache)
         prefix_path = shlex.quote(os.path.join(game_path, 'prefix'))
+        proton_env = f"--env=PROTONPATH={shlex.quote(self.proton_path)} " if self.proton_path else ""
+        proton_whitelist = f"--whitelist={shlex.quote(self.proton_path)} " if self.proton_path else ""
 
         if mode in ("umu", "umu_net"):
             runner_cmd = f"umu-run {q_exe}" if deps["umu-run"] else f"wine {q_exe}"
@@ -52,7 +61,7 @@ class FirejailSandboxRunner(ISandboxRunner):
                     # specific runtime requirement is demonstrated.
                     f"{net_flag}"
                     f"--whitelist={q_path} --whitelist={q_umu_share} --whitelist={q_umu_cache} "
-                    f"--env=WINEPREFIX={prefix_path} {runner_cmd}"
+                    f"{proton_whitelist}{proton_env}--env=WINEPREFIX={prefix_path} {runner_cmd}"
                 )
             else:
                 # Direct unsandboxed execution fallback
