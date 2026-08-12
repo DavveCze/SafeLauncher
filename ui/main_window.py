@@ -1,6 +1,5 @@
 import os
 import shutil
-import tempfile
 import subprocess
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
@@ -673,26 +672,24 @@ class UmuBootstrapWorker(QThread):
                 self.process.wait()
 
     def run(self):
-        config_path = ""
         try:
             prefix = os.path.join(_APP_DATA_DIR, "umu-bootstrap-prefix")
             os.makedirs(prefix, mode=0o700, exist_ok=True)
-            # UMU has no standalone install subcommand. A harmless bootstrap
-            # config exercises its official download/setup path without opening
-            # a game. GE-Proton tells UMU to download/use the latest tool.
-            config = (
-                "[umu]\n"
-                f"proton = {self.proton_path!r}\n"
-                f"prefix = {prefix!r}\n"
-                "exe = '/usr/bin/true'\n"
-                "game_id = 'safelauncher-runtime'\n"
-            )
-            with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False) as file:
-                file.write(config)
-                config_path = file.name
+            # UMU's TOML `proton` field only accepts a real directory; tokens
+            # such as GE-Proton are rejected before provisioning starts. Use
+            # the regular launch interface instead: an empty PROTONPATH asks
+            # UMU to download its current Proton, while a manual path is passed
+            # through as an actual directory.
+            child_env = os.environ.copy()
+            child_env["WINEPREFIX"] = prefix
+            child_env["GAMEID"] = "safelauncher-runtime"
+            if self.proton_path and os.path.sep in self.proton_path:
+                child_env["PROTONPATH"] = os.path.realpath(os.path.expanduser(self.proton_path))
+            else:
+                child_env.pop("PROTONPATH", None)
 
-            command = ["umu-run", "--config", config_path]
-            self.output_line.emit("$ umu-run --config <bootstrap.toml>")
+            command = ["umu-run", "/usr/bin/true"]
+            self.output_line.emit("$ umu-run /usr/bin/true")
             self.output_line.emit("Network access is enabled for runtime provisioning…")
             self.process = subprocess.Popen(
                 command,
@@ -700,6 +697,7 @@ class UmuBootstrapWorker(QThread):
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
+                env=child_env,
             )
             for line in iter(self.process.stdout.readline, ""):
                 if line:
@@ -715,11 +713,6 @@ class UmuBootstrapWorker(QThread):
             self.completed.emit(False, 1)
         finally:
             self.process = None
-            if config_path:
-                try:
-                    os.unlink(config_path)
-                except OSError:
-                    pass
 
 
 class UmuRuntimeManagerDialog(QDialog):
