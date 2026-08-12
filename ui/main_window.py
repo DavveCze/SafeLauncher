@@ -2757,7 +2757,10 @@ class MainWindow(QMainWindow):
         sandbox_dir = ensure_sandbox_dir()
         dest_dir = os.path.join(sandbox_dir, archive_name)
 
-        thread = ExtractionThread(zip_path, dest_dir)
+        # Reuse the archive worker used by AddGameDialog.  The old class name
+        # here was never defined and caused a NameError when using the top-bar
+        # install button.
+        thread = ArchiveExtractorThread(zip_path, dest_dir)
         thread.extraction_complete.connect(self._on_topbar_extraction_complete)
         self._show_toast(f"Extracting '{archive_name}' in background...")
         thread.start()
