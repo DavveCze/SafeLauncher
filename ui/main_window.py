@@ -7,8 +7,8 @@ from PyQt6.QtWidgets import (
     QApplication, QSystemTrayIcon, QCheckBox, QGraphicsOpacityEffect, QPlainTextEdit, QProgressBar,
     QGraphicsDropShadowEffect, QStackedWidget, QSlider
 )
-from PyQt6.QtCore import Qt, QSize, QPoint, QThread, pyqtSignal, QVariantAnimation, QEasingCurve, QTimer, QEvent, QAbstractAnimation
-from PyQt6.QtGui import QPixmap, QFont, QColor, QIcon, QPainter, QPen, QRadialGradient, QLinearGradient, QMovie
+from PyQt6.QtCore import Qt, QSize, QPoint, QThread, pyqtSignal, QVariantAnimation, QEasingCurve, QTimer, QEvent, QAbstractAnimation, QUrl
+from PyQt6.QtGui import QPixmap, QFont, QColor, QIcon, QPainter, QPen, QRadialGradient, QLinearGradient, QMovie, QDesktopServices
 from core.interfaces import ISandboxRunner, IBackupManager
 from core.steamgriddb_client import SteamGridDBClient
 from core.playtime_tracker import PlaytimeTrackerThread
@@ -2734,13 +2734,36 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def _open_sandbox_dir(self):
-        """Open ~/Games/Sandbox in system file manager"""
+        """Open ~/Games/Sandbox in the system file manager."""
         import subprocess
         path = ensure_sandbox_dir()
-        try:
-            subprocess.Popen(["xdg-open", path])
-        except Exception as e:
-            QMessageBox.information(self, "Sandbox Path", f"Sandbox directory:\n{path}")
+
+        # Qt handles desktop portals and desktop environments more reliably
+        # than launching xdg-open directly, especially from an AppImage.
+        if QDesktopServices.openUrl(QUrl.fromLocalFile(path)):
+            return
+
+        # Keep a few command-line fallbacks for minimal Linux installations.
+        for opener in ("xdg-open", "gio", "kde-open5", "exo-open"):
+            if not shutil.which(opener):
+                continue
+            command = [opener, "open", path] if opener == "gio" else [opener, path]
+            try:
+                subprocess.Popen(
+                    command,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                return
+            except OSError:
+                continue
+
+        QMessageBox.information(
+            self,
+            "Sandbox Path",
+            f"Could not open a file manager automatically.\n\nSandbox directory:\n{path}",
+        )
 
     def _on_install_zip_archive(self):
         """Install game by picking a zip/7z archive directly from the top bar."""
