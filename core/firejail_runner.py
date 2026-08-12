@@ -3,6 +3,7 @@ import shlex
 import shutil
 import subprocess
 from core.interfaces import ISandboxRunner
+from core.host_process import host_process_env
 
 _VALID_MODES = {"umu", "umu_net", "wine", "linux"}
 
@@ -99,5 +100,6 @@ class FirejailSandboxRunner(ISandboxRunner):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1
+            bufsize=1,
+            env=host_process_env(),
         )
